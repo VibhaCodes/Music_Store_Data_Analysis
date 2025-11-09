@@ -19,7 +19,7 @@ ORDER BY c DESC
 SELECT total 
 FROM invoice
 ORDER BY total DESC
-
+LIMIT 3;
 
 /* Q4: Which city has the best customers? We would like to throw a promotional Music Festival in the city we made the most money. 
 Write a query that returns one city that has the highest sum of invoice totals. 
@@ -89,12 +89,10 @@ LIMIT 10;
 /* Q8: Return all the track names that have a song length longer than the average song length. 
 Return the Name and Milliseconds for each track. Order by the song length with the longest songs listed first. */
 
-SELECT name,miliseconds
+SELECT name, Milliseconds
 FROM track
-WHERE miliseconds > (
-	SELECT AVG(miliseconds) AS avg_track_length
-	FROM track )
-ORDER BY miliseconds DESC;
+WHERE Milliseconds > (SELECT AVG(Milliseconds) FROM track)
+ORDER BY Milliseconds DESC;
 
 /* Q9: Find how much amount spent by each customer on artists? Write a query to return customer name, artist name and total spent */
 
@@ -117,13 +115,25 @@ ORDER BY total_spent DESC
 with the highest amount of purchases. Write a query that returns each country along with the top Genre. For countries where 
 the maximum number of purchases is shared return all Genres. */
 
-WITH CTE AS(
-SELECT (I.billing_country)country,CONCAT_WS(' ',C.first_name, C.last_name)cust_name , SUM(I.total)total_spendings, DENSE_RANK() OVER(PARTITION BY I.billing_country ORDER BY SUM(I.total) DESC)ran
-FROM customer C
-INNER JOIN invoice I
-ON C.customer_id = I.customer_id
-GROUP BY I.billing_country, C.first_name, C.last_name)
+WITH genre_counts AS (
+  SELECT
+    i.BillingCountry AS country,
+    g.Name           AS genre,
+    COUNT(*)         AS purchases
+  FROM InvoiceLine il
+  JOIN Invoice i   ON il.InvoiceId = i.InvoiceId
+  JOIN Track t     ON il.TrackId   = t.TrackId
+  JOIN Genre g     ON t.GenreId    = g.GenreId
+  GROUP BY i.BillingCountry, g.Name
+),
+ranked AS (
+  SELECT
+    country, genre, purchases,
+    DENSE_RANK() OVER (PARTITION BY country ORDER BY purchases DESC) AS rnk
+  FROM genre_counts
+)
+SELECT country, genre, purchases
+FROM ranked
+WHERE rnk = 1
+ORDER BY country, genre;
 
-SELECT country, cust_name, total_spendings
-FROM CTE
-WHERE ran = 1;
